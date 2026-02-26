@@ -1,11 +1,16 @@
 import requests  # Мы берем в руки "телефон"
 
 def get_weather_for_city(city_name):
+   
    geo_url = f"https://geocoding-api.open-meteo.com/v1/search?name={city_name}&count=1&language=en&format=json"
    
    geo_response = requests.get(geo_url)
    
    geo_data = geo_response.json()
+   
+   if "results" not in geo_data:
+      print("Упс! Город не найден.")
+      return None
    
    first_city = geo_data["results"][0]
    
@@ -31,4 +36,4 @@ def get_weather_for_city(city_name):
       "wind_speed": wind
    }
 
-get_weather_for_city('Minsk')
+get_weather_for_city('asdasd')
