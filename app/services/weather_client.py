@@ -1,5 +1,9 @@
 import requests
 from app.schemas.weather import WeatherResponse, WeatherResult
+from app.database import init_db
+from app.database import SessionLocal
+from app.models.weather import WeatherRequest
+
 
 def _get_coordinates(city_name):
    """Ищет широту и долготу по названию города."""                
@@ -39,10 +43,32 @@ def get_weather_for_city(city_name):
       wind_speed=current_weather.windspeed
    )
 
+def save_weather_to_db(data: WeatherResult):
+   """Сохраняет проверенные данные о погоде в базу данных."""
+   # 1. Открываем сессию (канал связи)
+   db = SessionLocal()
+   try:
+      # 2. Создаем "строчку" для базы на основе нашего объекта
+      new_entry = WeatherRequest(
+         city=data.city.title(), # Используем .title() для красоты
+         temperature=data.temperature_c,
+         wind_speed=data.wind_speed
+      )
+      # 3. Добавляем и сохраняем
+      db.add(new_entry)
+      db.commit()
+      print(f"✅ Данные для города {data.city} успешно сохранены в БД.")
+   except Exception as e:
+      print(f"❌ Ошибка при сохранении в БД: {e}")
+      db.rollback() # Откатываем изменения, если что-то пошло не так
+   finally:
+      db.close() # Всегда закрываем сессию
+
 if __name__ == "__main__":
+   print("Создаем таблицы в базе данных...")
+   init_db()
    city = "Moscow"
    result = get_weather_for_city(city)
-   
    if result:
       print(f"Объект Pydantic успешно создан: {result}")
    else:
