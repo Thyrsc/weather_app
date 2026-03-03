@@ -34,14 +34,14 @@ def get_weather_for_city(city_name):
    
    # Валидация данных через Pydantic
    current_weather = WeatherResponse(**data["current_weather"])
-   
-   print(f"В городе {city_name} сейчас {current_weather.temperature}°C")
-   
-   return WeatherResult(
+   result = WeatherResult(
       city=city_name,
       temperature_c=current_weather.temperature,
       wind_speed=current_weather.windspeed
    )
+   save_weather_to_db(result)
+   print(f"В городе {city_name} сейчас {current_weather.temperature}°C")
+   return result
 
 def save_weather_to_db(data: WeatherResult):
    """Сохраняет проверенные данные о погоде в базу данных."""
