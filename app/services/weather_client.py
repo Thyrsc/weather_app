@@ -4,6 +4,7 @@ from app.database import init_db
 from app.database import SessionLocal
 from app.models.weather import WeatherRequest
 from datetime import datetime, timedelta, timezone
+from app.services.analytics import get_city_stats
 
 
 def _get_coordinates(city_name):
@@ -89,6 +90,19 @@ if __name__ == "__main__":
          break
       if not city_name:
          continue
+      if city_name.lower() == 'stats':
+            target_city = input("Для какого города показать статистику? ")
+            stats = get_city_stats(target_city)
+            if stats:
+               print(f"\n--- Статистика по городу {stats['city']} ---")
+               print(f"Всего записей: {stats['count']}")
+               print(f"Средняя температура: {stats['avg_temp']}°C")
+               print(f"Минимальная температура: {stats['min_temperature']}°C")
+               print(f"Максимальная температура: {stats['max_temperature']}°C")
+               print(f"Максимальный ветер: {stats['max_wind']} м/с")
+            else:
+               print("Данных по этому городу пока нет.")
+            continue
       # Запускаем нашу логику
       result = get_weather_for_city(city_name)
       
