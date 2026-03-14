@@ -5,7 +5,8 @@ from app.database import SessionLocal
 from app.models.weather import WeatherRequest
 from datetime import datetime, timedelta, timezone
 from app.services.analytics import get_city_stats
-
+from app.models.weather import City, WeatherRequest
+from app.database import SessionLocal
 
 def _get_coordinates(city_name):
    """Ищет широту и долготу по названию города."""                
@@ -41,36 +42,34 @@ def get_weather_for_city(city_name):
       temperature_c=current_weather.temperature,
       wind_speed=current_weather.windspeed
    )
-   save_weather_to_db(result)
+   save_weather_to_db(result.city, result.temperature_c, result.wind_speed)
    print(f"В городе {city_name} сейчас {current_weather.temperature}°C")
    return result
 
-def save_weather_to_db(data: WeatherResult):
+def save_weather_to_db(city_name: str, temp: float, wind: float):
    db = SessionLocal()
    try:
-      # 1. Ищем последнюю запись для этого города в базе
-      last_entry = db.query(WeatherRequest).filter(
-      WeatherRequest.city == data.city.title()
-      ).order_by(WeatherRequest.created_at.desc()).first()
-
-      # 2. Проверяем, насколько она свежая
-      if last_entry:
-         # Вычисляем разницу между "сейчас" и временем записи в базе
-         # Убедись, что оба значения либо с таймзоной, либо без (для SQLite обычно без)
-         time_diff = datetime.now(timezone.utc) - last_entry.created_at.replace(tzinfo=timezone.utc)
-         if time_diff < timedelta(minutes=10):
-            print(f"⏳ Данные для {data.city} еще свежие (обновлено {time_diff.seconds // 60} мин. назад). Пропускаем сохранение.")
-            return
-
-      # 3. Если записи нет или она старая — сохраняем
-      new_entry = WeatherRequest(
-      city=data.city.title(),
-      temperature=data.temperature_c,
-      wind_speed=data.wind_speed
+      # 1. Ищем город в таблице City
+      city = db.query(City).filter(City.name == city_name.title()).first()
+      
+      # 2. Если города нет, создаем его
+      if not city:
+         city = City(name=city_name.title())
+         db.add(city)
+         db.commit()
+         db.refresh(city) # Теперь у нас есть city.id
+      
+      # 3. Создаем запись погоды, используя ID города
+      new_record = WeatherRequest(
+         
+         city_id=city.id,
+         temperature=temp,
+         wind_speed=wind
       )
-      db.add(new_entry)
+      db.add(new_record)
       db.commit()
-      print(f"✅ Данные для города {data.city} успешно сохранены в БД.")
+      print(f"✅ Данные для города {city.name} (ID: {city.id}) успешно сохранены.")
+      
    except Exception as e:
       print(f"❌ Ошибка при работе с БД: {e}")
       db.rollback()
@@ -97,8 +96,8 @@ if __name__ == "__main__":
                print(f"\n--- Статистика по городу {stats['city']} ---")
                print(f"Всего записей: {stats['count']}")
                print(f"Средняя температура: {stats['avg_temp']}°C")
-               print(f"Минимальная температура: {stats['min_temperature']}°C")
-               print(f"Максимальная температура: {stats['max_temperature']}°C")
+               print(f"Минимальная температура: {stats['min_temp']}°C")
+               print(f"Максимальная температура: {stats['max_temp']}°C")
                print(f"Максимальный ветер: {stats['max_wind']} м/с")
             else:
                print("Данных по этому городу пока нет.")

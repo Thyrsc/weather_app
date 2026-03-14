@@ -1,22 +1,22 @@
 from sqlalchemy import create_engine
+from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from app.models.weather import Base
-from sqlalchemy.orm import Session
 
-# Путь к файлу базы данных SQLite
-SQLALCHEMY_DATABASE_URL = "sqlite:///./weather.db"
+DATABASE_URL = "sqlite:///./weather.db"
 
-# Создаем "движок" - он отвечает за само соединение
-engine = create_engine(
-   SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
-)
+# Создаем движок
+engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 
-# Сессия - это наш "канал" для отправки запросов в базу
+# Фабрика сессий
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+# Базовый класс для моделей
+Base = declarative_base()
+
 def init_db():
-   """Функция для создания таблиц."""
-   # Берет все чертежи из Base и создает их в файле weather.db
+   # Импортируем модели здесь, чтобы избежать кругового импорта
+   import app.models.weather
+   # Вот правильный способ вызвать создание таблиц:
    Base.metadata.create_all(bind=engine)
 
 def get_db():
