@@ -1,7 +1,8 @@
 from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from app.database import Base  # Это правильно
+from app.database import Base
+from pydantic import BaseModel
 
 
 class City(Base):
@@ -13,9 +14,21 @@ class City(Base):
    # Связь с записями погоды
    weather_records = relationship("WeatherRequest", back_populates="city_rel")
 
+class WeatherResponse(BaseModel):
+   temperature: float
+   windspeed: float
+   time: str
+   weathercode: int
+
+class WeatherResult(BaseModel):
+   city: str
+   temperature_c: float
+   wind_speed: float
+   description: str
+
 class WeatherRequest(Base):
    __tablename__ = "weather_requests"
-
+   
    id = Column(Integer, primary_key=True, index=True)
    
    # Указываем на ID города. ForeignKey теперь импортирован!
@@ -23,7 +36,8 @@ class WeatherRequest(Base):
    
    temperature = Column(Float)
    wind_speed = Column(Float)
+   weather_description = Column(String)
    created_at = Column(DateTime(timezone=True), server_default=func.now())
-
+   
    # Обратная связь к объекту City
    city_rel = relationship("City", back_populates="weather_records")

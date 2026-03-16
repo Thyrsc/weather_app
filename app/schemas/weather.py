@@ -9,3 +9,4 @@ class WeatherResult(BaseModel):
    city: str
    temperature_c: float
    wind_speed: float
+   description: str

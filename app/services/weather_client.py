@@ -1,12 +1,8 @@
 import requests
-from app.schemas.weather import WeatherResponse, WeatherResult
-from app.database import init_db
-from app.database import SessionLocal
-from app.models.weather import WeatherRequest
-from datetime import datetime, timedelta, timezone
-from app.services.analytics import get_city_stats
+from app.database import init_db, SessionLocal
 from app.models.weather import City, WeatherRequest
-from app.database import SessionLocal
+from app.schemas.weather import WeatherResponse, WeatherResult
+from app.services.analytics import get_city_stats, get_global_records, WEATHER_DESCRIPTIONS
 
 def _get_coordinates(city_name):
    """Ищет широту и долготу по названию города."""                
@@ -28,25 +24,39 @@ def _get_weather_data(lat, lon):
    return response.json()
 
 def get_weather_for_city(city_name):
-   """Основная функция с использованием Pydantic моделей."""
    lat, lon = _get_coordinates(city_name)
    if lat is None:
       return None
    
    data = _get_weather_data(lat, lon)
    
-   # Валидация данных через Pydantic
+   # 1. Достаем код и описание
+   weather_code = data["current_weather"].get("weathercode", 0)
+   description = WEATHER_DESCRIPTIONS.get(weather_code, "Unknown")
+   
+   # 2. Валидация данных через Pydantic (входящие данные от API)
    current_weather = WeatherResponse(**data["current_weather"])
+   
+   # --- ВОТ ЭТОГО КУСКА НЕ ХВАТАЛО ---
+   # 3. Создаем объект результата (то, что функция вернет наружу)
    result = WeatherResult(
-      city=city_name,
+      city=city_name.title(),
       temperature_c=current_weather.temperature,
-      wind_speed=current_weather.windspeed
+      wind_speed=current_weather.windspeed,
+      description=description
    )
-   save_weather_to_db(result.city, result.temperature_c, result.wind_speed)
-   print(f"В городе {city_name} сейчас {current_weather.temperature}°C")
+   
+   # 4. Сохраняем в БД
+   save_weather_to_db(
+      city_name, 
+      current_weather.temperature, 
+      current_weather.windspeed, 
+      description
+   )
+   print(f"В городе {city_name} сейчас {current_weather.temperature}°C, {description}")
    return result
 
-def save_weather_to_db(city_name: str, temp: float, wind: float):
+def save_weather_to_db(city_name: str, temp: float, wind: float, desc: str):
    db = SessionLocal()
    try:
       # 1. Ищем город в таблице City
@@ -61,10 +71,10 @@ def save_weather_to_db(city_name: str, temp: float, wind: float):
       
       # 3. Создаем запись погоды, используя ID города
       new_record = WeatherRequest(
-         
          city_id=city.id,
          temperature=temp,
-         wind_speed=wind
+         wind_speed=wind,
+         weather_description=desc
       )
       db.add(new_record)
       db.commit()
@@ -90,18 +100,30 @@ if __name__ == "__main__":
       if not city_name:
          continue
       if city_name.lower() == 'stats':
-            target_city = input("Для какого города показать статистику? ")
-            stats = get_city_stats(target_city)
-            if stats:
-               print(f"\n--- Статистика по городу {stats['city']} ---")
-               print(f"Всего записей: {stats['count']}")
-               print(f"Средняя температура: {stats['avg_temp']}°C")
-               print(f"Минимальная температура: {stats['min_temp']}°C")
-               print(f"Максимальная температура: {stats['max_temp']}°C")
-               print(f"Максимальный ветер: {stats['max_wind']} м/с")
-            else:
-               print("Данных по этому городу пока нет.")
-            continue
+         target_city = input("Для какого города показать статистику? ")
+         stats = get_city_stats(target_city)
+         if stats:
+            print(f"\n--- Статистика по городу {stats['city']} ---")
+            print(f"Всего записей: {stats['count']}")
+            print(f"Средняя температура: {stats['avg_temp']}°C")
+            print(f"Минимальная температура: {stats['min_temp']}°C")
+            print(f"Максимальная температура: {stats['max_temp']}°C")
+            print(f"Максимальный ветер: {stats['max_wind']} м/с")
+         else:
+            print("Данных по этому городу пока нет.")
+         continue
+      elif city_name.lower() == 'top':
+         records = get_global_records()
+         if not records["coldest"] and not records["windiest"]:
+            print("\nℹ️ Пока не было поисковых запросов, топ пуст.")
+         else:
+            print("\n❄️ ТОП-3 САМЫХ ХОЛОДНЫХ ЗАМЕРА:")
+            for city, temp in records["coldest"]:
+               print(f"- {city}: {temp}°C")
+            print("\n🌪️ ТОП-3 САМЫХ ВЕТРЕНЫХ ЗАМЕРА:")
+            for city, wind in records["windiest"]:
+               print(f"- {city}: {wind} м/с")
+         continue # Возвращаемся в начало цикла
       # Запускаем нашу логику
       result = get_weather_for_city(city_name)
       
