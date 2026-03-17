@@ -13,7 +13,7 @@ WEATHER_DESCRIPTIONS = {
 def get_city_stats(city_name: str):
    db = SessionLocal()
    try:
-      # Соединяем таблицы City и WeatherRequest по общему ID
+      # 1. Основные агрегаты (как и были)
       stats = db.query(
          func.avg(WeatherRequest.temperature).label("avg_temp"),
          func.min(WeatherRequest.temperature).label("min_temp"),
@@ -24,6 +24,16 @@ def get_city_stats(city_name: str):
       
       if not stats or stats.total_records == 0:
          return None
+      # 2. Находим самое частое описание погоды (Most Frequent Condition)
+      # Группируем по описанию, считаем количество и берем самое верхнее
+      common_weather = db.query(WeatherRequest.weather_description)\
+         .join(City)\
+         .filter(City.name == city_name.title())\
+         .group_by(WeatherRequest.weather_description)\
+         .order_by(func.count(WeatherRequest.id).desc())\
+         .first()
+
+      most_common = common_weather[0] if common_weather else "N/A"
          
       return {
          "city": city_name.title(),
@@ -31,7 +41,8 @@ def get_city_stats(city_name: str):
          "min_temp": stats.min_temp,
          "max_temp": stats.max_temp,
          "max_wind": stats.max_wind,
-         "count": stats.total_records
+         "count": stats.total_records,
+         "common_condition": most_common # Добавили в результат
       }
    finally:
       db.close()

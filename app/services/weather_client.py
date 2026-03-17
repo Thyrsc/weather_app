@@ -109,6 +109,7 @@ if __name__ == "__main__":
             print(f"Минимальная температура: {stats['min_temp']}°C")
             print(f"Максимальная температура: {stats['max_temp']}°C")
             print(f"Максимальный ветер: {stats['max_wind']} м/с")
+            print(f"Чаще всего: {stats['common_condition']}")
          else:
             print("Данных по этому городу пока нет.")
          continue
