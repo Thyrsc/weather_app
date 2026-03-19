@@ -2,7 +2,7 @@ import requests
 from app.database import init_db, SessionLocal
 from app.models.weather import City, WeatherRequest
 from app.schemas.weather import WeatherResponse, WeatherResult
-from app.services.analytics import get_city_stats, get_global_records, WEATHER_DESCRIPTIONS
+from app.services.analytics import get_city_stats, get_global_records, get_sunniest_cities, WEATHER_DESCRIPTIONS
 
 def _get_coordinates(city_name):
    """Ищет широту и долготу по названию города."""                
@@ -87,7 +87,9 @@ def save_weather_to_db(city_name: str, temp: float, wind: float, desc: str):
       db.close()
 
 if __name__ == "__main__":
-   print("🌤️ Добро пожаловать в Weather App!")
+   print("\n" + "╔" + "═"*38 + "╗")
+   print("║      WEATHER ANALYTICS SYSTEM v1.0     ║")
+   print("╚" + "═"*38 + "╝")
    init_db()
    while True:
       print("\nВведите название города на английском (или 'exit' для выхода):")
@@ -100,31 +102,45 @@ if __name__ == "__main__":
       if not city_name:
          continue
       if city_name.lower() == 'stats':
-         target_city = input("Для какого города показать статистику? ")
+         target_city = input("🔍 Введите город для статистики: ").strip()
          stats = get_city_stats(target_city)
          if stats:
-            print(f"\n--- Статистика по городу {stats['city']} ---")
-            print(f"Всего записей: {stats['count']}")
-            print(f"Средняя температура: {stats['avg_temp']}°C")
-            print(f"Минимальная температура: {stats['min_temp']}°C")
-            print(f"Максимальная температура: {stats['max_temp']}°C")
-            print(f"Максимальный ветер: {stats['max_wind']} м/с")
-            print(f"Чаще всего: {stats['common_condition']}")
+            print("\n" + "═"*40)
+            print(f"📊 ОТЧЕТ ПО ГОРОДУ: {stats['city'].upper()}")
+            print("─"*40)
+            print(f"  🔹 Замеров в базе:    {stats['count']}")
+            print(f"  🔹 Средняя темп.:     {stats['avg_temp']}°C")
+            print(f"  🔹 Темп. (min/max):   {stats['min_temp']}°C / {stats['max_temp']}°C")
+            print(f"  🔹 Макс. ветер:       {stats['max_wind']} м/с")
+            print(f"  🔹 Преобладает:       {stats['common_condition']}")
+            print("═"*40)
          else:
-            print("Данных по этому городу пока нет.")
+            print(f"⚠️  Данных по городу '{target_city}' пока нет.")
          continue
       elif city_name.lower() == 'top':
          records = get_global_records()
-         if not records["coldest"] and not records["windiest"]:
-            print("\nℹ️ Пока не было поисковых запросов, топ пуст.")
+         print("\n" + "❄️" + "─"*39)
+         print("  ТОП-3 САМЫХ ХОЛОДНЫХ ЗАМЕРА")
+         for i, (city, temp) in enumerate(records["coldest"], 1):
+            print(f"  {i}. {city:<15} | {temp:>5}°C")
+         print("\n" + "🌪️" + "─"*39)
+         print("  ТОП-3 САМЫХ ВЕТРЕНЫХ ЗАМЕРА")
+         for i, (city, wind) in enumerate(records["windiest"], 1):
+            print(f"  {i}. {city:<15} | {wind:>5} м/с")
+         print("─"*40)
+         continue
+      elif city_name.lower() == 'sunny':
+         sun_tops = get_sunniest_cities()
+         print("\n" + "☀️" + "═"*39)
+         print("  РЕЙТИНГ СОЛНЕЧНЫХ ГОРОДОВ")
+         print("─"*40)
+         if sun_tops:
+            for i, (city, count) in enumerate(sun_tops, 1):
+               print(f"  {i}. {city:<15} | {count:>2} раз(а) 'Clear sky'")
          else:
-            print("\n❄️ ТОП-3 САМЫХ ХОЛОДНЫХ ЗАМЕРА:")
-            for city, temp in records["coldest"]:
-               print(f"- {city}: {temp}°C")
-            print("\n🌪️ ТОП-3 САМЫХ ВЕТРЕНЫХ ЗАМЕРА:")
-            for city, wind in records["windiest"]:
-               print(f"- {city}: {wind} м/с")
-         continue # Возвращаемся в начало цикла
+            print("  Пока данных о ясном небе нет.")
+         print("═"*40)
+         continue
       # Запускаем нашу логику
       result = get_weather_for_city(city_name)
       

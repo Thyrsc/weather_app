@@ -7,7 +7,6 @@ WEATHER_DESCRIPTIONS = {
    1: "Mainly clear",
    2: "Partly cloudy",
    3: "Overcast",
-   # ... остальные коды
 }
 
 def get_city_stats(city_name: str):
@@ -32,7 +31,6 @@ def get_city_stats(city_name: str):
          .group_by(WeatherRequest.weather_description)\
          .order_by(func.count(WeatherRequest.id).desc())\
          .first()
-
       most_common = common_weather[0] if common_weather else "N/A"
          
       return {
@@ -65,5 +63,23 @@ def get_global_records():
          "coldest": coldest,
          "windiest": windiest
       }
+   finally:
+      db.close()
+
+
+def get_sunniest_cities():
+   db = SessionLocal()
+   try:
+      # Считаем количество "Clear sky" для каждого города
+      sunniest = db.query(
+         City.name, 
+         func.count(WeatherRequest.id).label("sunny_days")
+      ).join(WeatherRequest)\
+      .filter(WeatherRequest.weather_description == "Clear sky")\
+      .group_by(City.name)\
+      .order_by(func.count(WeatherRequest.id).desc())\
+      .limit(3).all()
+      
+      return sunniest
    finally:
       db.close()
