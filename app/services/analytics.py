@@ -49,19 +49,16 @@ def get_city_stats(city_name: str):
 def get_global_records():
    db = SessionLocal()
    try:
-      # 1. Топ самых холодных (сортировка ASC)
-      coldest = db.query(City.name, WeatherRequest.temperature)\
-         .join(City)\
-         .order_by(WeatherRequest.temperature.asc())\
-         .limit(3).all()
-      # 2. Топ самых ветреных (сортировка DESC)
-      windiest = db.query(City.name, WeatherRequest.wind_speed)\
-         .join(City)\
-         .order_by(WeatherRequest.wind_speed.desc())\
-         .limit(3).all()
+      coldest_raw = db.query(City.name, WeatherRequest.temperature)\
+         .join(City).order_by(WeatherRequest.temperature.asc()).limit(3).all()
+      
+      windiest_raw = db.query(City.name, WeatherRequest.wind_speed)\
+         .join(City).order_by(WeatherRequest.wind_speed.desc()).limit(3).all()
+
+      # Превращаем кортежи SQLAlchemy в обычные списки словарей
       return {
-         "coldest": coldest,
-         "windiest": windiest
+         "coldest": [{"city": c[0], "temp": c[1]} for c in coldest_raw],
+         "windiest": [{"city": w[0], "wind": w[1]} for w in windiest_raw]
       }
    finally:
       db.close()
@@ -70,8 +67,7 @@ def get_global_records():
 def get_sunniest_cities():
    db = SessionLocal()
    try:
-      # Считаем количество "Clear sky" для каждого города
-      sunniest = db.query(
+      sunniest_raw = db.query(
          City.name, 
          func.count(WeatherRequest.id).label("sunny_days")
       ).join(WeatherRequest)\
@@ -80,6 +76,7 @@ def get_sunniest_cities():
       .order_by(func.count(WeatherRequest.id).desc())\
       .limit(3).all()
       
-      return sunniest
+      # Превращаем в список понятных объектов
+      return [{"city": s[0], "sunny_days": s[1]} for s in sunniest_raw]
    finally:
       db.close()
