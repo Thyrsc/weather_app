@@ -1,5 +1,5 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Path
 from app.database import init_db
 from app.services.weather_client import get_weather_for_city
 from app.services.analytics import get_city_stats, get_global_records, get_sunniest_cities
@@ -29,10 +29,12 @@ def read_root():
 
 # Эндпоинт для получения погоды (заменяет ввод города в консоли)
 @app.get("/weather/{city}")
-def fetch_weather(city: str):
+def fetch_weather(
+   city: str = Path(..., min_length=2, max_length=50, description="Название города")
+):
    result = get_weather_for_city(city)
    if not result:
-      raise HTTPException(status_code=404, detail=f"Город {city} не найден")
+      raise HTTPException(status_code=404, detail=f"Город '{city}' не найден в базе метеослужбы")
    return result
 
 # Эндпоинт для статистики
